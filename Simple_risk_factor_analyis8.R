@@ -292,7 +292,6 @@ meta_shannon16s_new <- cbind(Shannon16s_new, Number_ASVs16s_new,Simpson16s_new);
 
 ##################################################################
 
-
 ##################################################################
 ###                      IMPORT qPCR DATA                      ###
 ##################################################################
@@ -531,7 +530,6 @@ meta_shannon_euk <- cbind(Shannon_euk, Number_ASVs_euk,Simpson_euk);dim(meta_sha
 ####################################################################################################################################
 ####################################################################################################################################
 ###################################################################################################################################
-
 
 # Comparing data set from with all combinaison
 #########################################
@@ -975,7 +973,6 @@ pwc3 <- qPCR_Metadata %>%
   )
 pwc3
 ##################################################################
-
 
 ##################################################################
 ## ONE WAY ANOVA SHANNON
@@ -1629,7 +1626,6 @@ bxp +
   )
 
 ##################################################################
-
 
 ##################################################################
 ### 2 WAYS ANOVA Stunted Shannon
@@ -3058,6 +3054,7 @@ ggsave2(plot_combined, filename = "/Users/vincebilly/Desktop/vince/phd/statistic
 ### 3 WAYS ANOVA diet score - all   ###
 ##################################################################
 
+
 qPCR_Metadata_veg <- qPCR_Metadata[,c("haricot","jus","pain","citrouille","tubercule","leg_vert","fr_leg_aut","cereale_racine_tbrc","legum_noix")]
 for(i in colnames(qPCR_Metadata_veg)){
   qPCR_Metadata_veg[,i] <- ifelse(qPCR_Metadata_veg[,i] == "Oui",1,0)
@@ -3868,8 +3865,6 @@ ggplot(data = qPCR_Metadata_presence, aes(x = Cq, y = haz_cont)) +
 ##################################################################
 
 
-
-
 ##################################################################
 ## Madagascar Stunting
 ##################################################################
@@ -4022,7 +4017,6 @@ metadata_filtered_phylo <- sample_data(qPCR_Metadata)
 subset_project_data <- phyloseq(otu_filtered_phylo,tax_filtered_phylo,metadata_filtered_phylo)
 
 
-
 NMDS.bray <- ordinate(physeq = subset_project_data, method = "NMDS", distance = "bray")
 NMDS <- as.data.frame(sample_data(subset_project_data))
 bray <- as.data.frame(NMDS.bray$points)
@@ -4083,7 +4077,6 @@ ggsave2(NMDS_partitioned, filename = "/Users/vincebilly/Desktop/vince/phd/statis
 
 
 
-
 project_data.bray <- phyloseq::distance(subset_project_data, method = "bray")
 sample_df <- as.data.frame(as.matrix(sample_data(subset_project_data)))
 
@@ -4108,7 +4101,8 @@ res.adonis.rarefied.bray <- adonis2(project_data.bray ~ stunted*Cq_presence_abse
 res.adonis.rarefied.bray <- adonis2(project_data.bray ~ Cq_presence_absence*stunted*pays, data =sample_df, method="bray");res.adonis.rarefied.bray
 res.adonis.rarefied.bray <- adonis2(project_data.bray ~ Cq_presence_absence*pays*stunted, data =sample_df, method="bray");res.adonis.rarefied.bray
 res.adonis.rarefied.bray <- adonis2(project_data.bray ~ stunted*Cq_presence_absence*pays, data =sample_df, method="bray");res.adonis.rarefied.bray
-res.adonis.rarefied.bray <- adonis2(project_data.bray ~ stunted*pays*Cq_presence_absence, data =sample_df, method="bray");res.adonis.rarefied.bray
+
+res.adonis.rarefied.bray <- adonis2(project_data.bray ~ pays|Cq_presence_absence, data =sample_df, method="bray");res.adonis.rarefied.bray
 
 
 
@@ -4253,7 +4247,6 @@ write_csv(summary_table_NMDS_abundance,"/Users/vincebilly/Desktop/vince/phd/stat
 
 
 ##################################################################
-
 
 ##################################################################
 ###          Microbiome analysis 16s abundance                 ###
@@ -4453,26 +4446,34 @@ for(p in 1:length(pays_vector)){
       project_data_2 <- project_data_1 %>%
         subset_samples(stunted == stunted_vector[s])
     }
-    sample_data(project_data_2)$Cq_presence_absence <- factor(sample_data(project_data_2)$Cq_presence_absence, levels=c("Presence_qPCR","Absence_qPCR")) #Controling level order here
-    alpha <- 0.05 #Set significance threshold for mutliple test corrected pvals
-    otu_table(project_data_2) <- otu_table(project_data_2) + 1
-    table_final <- data.frame()
-    rank_vector <- c("Rank3","Rank4","Rank5","Rank6","Rank7")
+    deseq_table <- data.frame()
     lefse_table <- data.frame()                                                     #Create dataframe
-    sample_df <- as.data.frame(as.matrix(sample_data(project_data_2)))
+    table_bubble_plot <- data.frame()
+    ############################################################
+    ### Aggregation at each rank individually (from 1 to 7)  ###
+    ############################################################
+    rank_vector <- c("Rank2","Rank3","Rank4","Rank5","Rank6","Rank7","Accession")
     for(rnk in 1:length(rank_vector)){
-      project_data_1_rank <- tax_glom(project_data_2, taxrank=rank_vector[rnk])                  #Aggregation at each rank individually (from 1 to 7)
+      if (rank_vector[rnk]=="Accession"){
+        project_data_1_rank <- project_data_2
+      } else {
+        project_data_1_rank <- tax_glom(project_data_2, taxrank=rank_vector[rnk])
+      }
       ######################################
       ###       DESEQ2 using WALD        ###
       ######################################
-      dds.var3 <- phyloseq_to_deseq2(project_data_1_rank, design = ~ Cq_presence_absence)
+      project_data_1_rank_deseq <- project_data_1_rank
+      otu_table(project_data_1_rank_deseq) <- otu_table(project_data_1_rank_deseq) + 1
+      sample_data(project_data_1_rank_deseq)$Cq_presence_absence <- factor(sample_data(project_data_1_rank_deseq)$Cq_presence_absence, levels=c("Presence_qPCR","Absence_qPCR")) #Controling level order here
+      dds.var3 <- phyloseq_to_deseq2(project_data_1_rank_deseq, design = ~ Cq_presence_absence)
       dds.var3 <- DESeq(dds.var3, test = "Wald", fitType = "parametric")
+      alpha <- 0.05 #Set significance threshold for multiple test corrected p-values
       res.var3 <- results(dds.var3, cooksCutoff = FALSE, alpha = alpha, pAdjustMethod = "BH", contrast=c("Cq_presence_absence","Presence_qPCR", "Absence_qPCR"), altHypothesis = "greaterAbs") #here "level2" is experimental and "level1" is control or baseline #here we can use "contrast" to specify the comparison we are interested in
       summary(res.var3, alpha = alpha) # view a summary of the results table with a padj value < 0.05
       ##filtering the results table #
       res_p_ordered <- res.var3[order(res.var3$padj, na.last = NA), ]           #reorder the results table by adjusted p-value and remove any "NA" entries
       res_p_ordered_filt <- res_p_ordered[which(res_p_ordered$padj < alpha), ]  #filter out any results which have a adjust p-value less than alpha (0.01)
-      res_p_ordered_wtaxa.var3 <- cbind(as(res_p_ordered_filt, "data.frame"), as(tax_table(project_data_1_rank)[rownames(res_p_ordered_filt), ], "matrix")) #show results preserving taxa table
+      res_p_ordered_wtaxa.var3 <- cbind(as(res_p_ordered_filt, "data.frame"), as(tax_table(project_data_1_rank_deseq)[rownames(res_p_ordered_filt), ], "matrix")) #show results preserving taxa table
       res_p_ordered_wtaxa.var3$Cplt_taxo <- paste0(res_p_ordered_wtaxa.var3$Rank1,"|",
                                                res_p_ordered_wtaxa.var3$Rank2,"|",
                                                res_p_ordered_wtaxa.var3$Rank3,"|",
@@ -4480,23 +4481,34 @@ for(p in 1:length(pays_vector)){
                                                res_p_ordered_wtaxa.var3$Rank5,"|",
                                                res_p_ordered_wtaxa.var3$Rank6,"|",
                                                res_p_ordered_wtaxa.var3$Rank7,"|",
-                                               row.names(res_p_ordered_wtaxa.var3))
+                                               row.names(res_p_ordered_wtaxa.var3),"|",
+                                                         rank_vector[rnk])
       table_to_keep <- res_p_ordered_wtaxa.var3[,c("Cplt_taxo","log2FoldChange")]
-      table_final <- rbind(table_final,table_to_keep)
+      deseq_table <- rbind(deseq_table,table_to_keep)
       ######################################
       ###       Build LEfSe table        ###
       ######################################
       otu <- as.data.frame(t(otu_table(project_data_1_rank)))                       #Extract otu table
-      tax <- as.data.frame(as(tax_table(project_data_1_rank), "matrix"))                #Extract tax table
-      tax_otu <- merge(tax,otu, by ="row.names", all = T)                           #Merge tax and otu table
-      lefse_table <- rbind(lefse_table,tax_otu)                                     #Concatenate result from each Rank
-            
+      tax <- as.data.frame(as(tax_table(project_data_1_rank), "matrix"))            #Extract tax table
+      tax_otu <- merge(tax, otu, by ="row.names", all = T)                           #Merge tax and otu table
+      lefse_table <- rbind(lefse_table, tax_otu)                                     #Concatenate result from each Rank
+      table_full_bubble_plot <- lefse_table
+      table_full_bubble_plot$Cplt_taxo <- paste0(table_full_bubble_plot$Rank1,"|",
+                                                 table_full_bubble_plot$Rank2,"|",
+                                                 table_full_bubble_plot$Rank3,"|",
+                                                 table_full_bubble_plot$Rank4,"|",
+                                                 table_full_bubble_plot$Rank5,"|",
+                                                 table_full_bubble_plot$Rank6,"|",
+                                                 table_full_bubble_plot$Rank7,"|",
+                                                 table_full_bubble_plot$Row.names,"|",
+                                                   rank_vector[rnk])
+      table_bubble_plot <- rbind(table_bubble_plot,table_full_bubble_plot)
     }
     ######################################
     ###       DESEQ2 using WALD        ###
     ######################################
-    table_final$Cplt_taxo <- gsub("[|]NA.*","",table_final$Cplt_taxo)
-    summary_table <- merge(summary_table,table_final,by="Cplt_taxo", all=TRUE)
+    deseq_table$Cplt_taxo <- gsub("[|]NA","",deseq_table$Cplt_taxo)
+    summary_table <- merge(summary_table,deseq_table,by="Cplt_taxo", all=TRUE)
     colnames(summary_table)[dim(summary_table)[2]] <- paste0(pays_vector[p],"_",stunted_vector[s])
     ######################################
     ###       Build LEfSe table        ###
@@ -4507,16 +4519,21 @@ for(p in 1:length(pays_vector)){
     lefse_table$Row.names <- gsub("[|]NA","",lefse_table$Row.names)
     #Remove all "Rank" columns
     lefse_table <- lefse_table[,setdiff(colnames(lefse_table),colnames(tax_table(project_data_2)))]
-    #Reformate table for lefse analysis input
+    #Reformat table for LEfSe analysis input
     colnames(lefse_table)[1] <- "id"
     id <- colnames(lefse_table)
+    sample_df <- as.data.frame(as.matrix(sample_data(project_data_2)))
     Treatment <- c("Treatment", as.character(sample_df$Cq_presence_absence))
     lefse_table <- rbind(id,lefse_table)
     colnames(lefse_table) <- Treatment
     #Save table
     setwd("/Users/vincebilly/Desktop/vince/phd/statistic/afribiota_vince/Simple_risk_factor/figure/lefse_input/")
     write.table(lefse_table, paste0("lefse_",pays_vector[p],"_",stunted_vector[s],".txt"), sep="\t", row.names = FALSE, quote=FALSE)
-    
+    ################################################################
+    ###       Export full abundance table for bubble plot        ###
+    ################################################################
+    setwd("/Users/vincebilly/Desktop/vince/phd/statistic/afribiota_vince/Simple_risk_factor/figure/")
+    write.table(table_bubble_plot, paste0("Full_abundance_Table_",pays_vector[p],"_",stunted_vector[s],".txt"), sep="\t", row.names = FALSE, quote=FALSE)
   }
 }
 
@@ -4656,6 +4673,266 @@ ggplot(log_melt5_mel, aes(x=variable, y=reorder(Cplt_taxo,-as.integer(factor(ord
         legend.position="bottom") +
   guides(fill=guide_legend(nrow=1,byrow=TRUE))
 dev.off()
+#######################################################
+
+####################################################################
+###  Plot with only stunted and non stunted (countries combined) ###
+####################################################################
+
+log_melt <- summary_table[,c("Cplt_taxo","Both_Country_Stunted","Both_Country_Non-Stunted")]
+
+#Create a another column to indicuate what is significant or not
+log_melt$pos_neg_stunted <- log_melt$Both_Country_Stunted
+#Convert as significant value below or equal to 0.05
+log_melt$pos_neg_stunted[log_melt$pos_neg_stunted>0]  <- "Increase"
+log_melt$pos_neg_stunted[log_melt$pos_neg_stunted<0]  <- "Decrease"
+
+#Create a another colum to indicuate what is significant or not
+log_melt$pos_neg_non_stunted <- log_melt$`Both_Country_Non-Stunted`
+#Convert as significant value below or equal to 0.05
+log_melt$pos_neg_non_stunted[log_melt$pos_neg_non_stunted>0]  <- "Increase"
+log_melt$pos_neg_non_stunted[log_melt$pos_neg_non_stunted<0]  <- "Decrease"
+
+log_melt3 <- log_melt
+log_melt3$order <- paste0(log_melt3$pos_neg_stunted,"_",log_melt3$pos_neg_non_stunted)
+head(log_melt3)
+log_melt3_melt <- melt(log_melt3, id.vars=c("Cplt_taxo","order"),
+                       measure.vars = c("Both_Country_Stunted","Both_Country_Non-Stunted"));head(log_melt3_mel)
+
+
+log_melt3_mel <- log_melt3_melt
+log_melt3_mel$direction <- ifelse(log_melt3_mel$value>0,"Increase","Decrease")
+log_melt3_mel$value_in <- log_melt3_mel$value
+log_melt3_mel$value <- abs(log_melt3_mel$value)
+log_melt3_mel$Cplt_taxo <- as.character(log_melt3$Cplt_taxo)
+
+log_melt3_mel$order <- factor(log_melt3_mel$order, levels = c("Increase_Increase",
+                                                              "Decrease_Decrease",
+                                                              "Increase_NA",
+                                                              "Decrease_NA",
+                                                              "NA_Increase",
+                                                              "NA_Decrease",
+                                                              "Decrease_Increase",
+                                                              "Increase_Decrease",
+                                                              "NA_NA")  
+)
+
+pdf("/Users/vincebilly/Desktop/vince/phd/statistic/afribiota_vince/Simple_risk_factor/figure/DESeq_summary_country_combined.pdf", height = 45, width = 20)
+ggplot(log_melt3_mel, aes(x=variable, y=reorder(Cplt_taxo,-as.integer(factor(order)), FUN=min), size= value, color=direction)) +
+  geom_point(alpha=0.5) +
+  scale_color_manual(values=c("orange","blue"), name="Change in abundance") +
+  theme(axis.text.x = element_text(angle = -45, hjust = 0))
+dev.off()
+
+to_keep <- c("Increase_Increase","Decrease_Decrease")
+log_melt4_mel <- subset(log_melt3_mel,order %in% to_keep)
+log_melt4_mel$Cplt_taxo2 <- gsub("ASV.*","",log_melt4_mel$Cplt_taxo)
+log_melt4_mel$variable <- gsub("Both_Country_Non-Stunted","Non-Stunted",log_melt4_mel$variable)
+log_melt4_mel$variable <- gsub("Both_Country_Stunted","Stunted",log_melt4_mel$variable)
+
+#Create unique code for each taxa
+code_table <- expand.grid(rep(list(letters[1:26]), 3))
+code_taxo <- paste0("id",code_table$Var1,code_table$Var2,code_table$Var3)[1:length(log_melt4_mel$Cplt_taxo2)]
+log_melt4_mel$code_taxo <- code_taxo
+
+#Create Rank column
+log_melt4_mel$Rank <- sub(".*\\|", "", log_melt4_mel$Cplt_taxo)
+
+#Keep last name (remove everything before last pipe)
+log_melt4_mel$Cplt_taxo2 <- gsub('.{1}$','',log_melt4_mel$Cplt_taxo2)
+log_melt4_mel$Cplt_taxo2 <- sub(".*\\|", "", log_melt4_mel$Cplt_taxo2)
+
+#Check for duplicate
+length(log_melt4_mel$taxo)
+length(unique(log_melt4_mel$taxo))
+
+#
+log_melt4_mel$taxo <- paste0(log_melt4_mel$Cplt_taxo2,"_",log_melt4_mel$code_taxo," (",log_melt4_mel$Rank,")")
+
+pdf("/Users/vincebilly/Desktop/vince/phd/statistic/afribiota_vince/Simple_risk_factor/figure/DESeq_summary_country_combined_similar.pdf", height = 20, width = 20)
+plot_deseq_sig_all <- ggplot(log_melt4_mel, aes(x=variable, y=reorder(taxo,value_in), size= value, color=direction)) +
+  geom_point(alpha=0.5) +
+  theme_light() +
+  scale_color_manual(values=c("orange","blue"), name="Change in abundance") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size=20, face="bold"),
+        axis.text.y = element_text(size=15, face="bold"))
+print(plot_deseq_sig_all)
+dev.off()
+
+
+
+final_table <- data.frame()
+rank_vector <- c("Rank2","Rank3","Rank4","Rank5","Rank6","Rank7","Accession")
+for(rnk in 1:length(rank_vector)){
+  test1_rnk <- log_melt3_mel[grep(rank_vector[rnk],log_melt3_mel$Cplt_taxo),]
+  test <- as.data.frame(table(test1_rnk$order))
+  test$Sample <- rank_vector[rnk]
+  final_table <- rbind(final_table,test)
+}
+
+final_table$Var1 <- factor(final_table$Var1, levels = c("Decrease_Increase",
+                                          "Increase_Decrease",
+                                          "Decrease_NA",
+                                          "Decrease_Decrease",
+                                          "NA_Decrease",
+                                          "Increase_NA",
+                                          "Increase_Increase",
+                                          "NA_Increase",
+                                          "NA_NA")  
+)
+
+final_table$Sample <- factor(final_table$Sample, levels = c("Rank2","Rank3","Rank4","Rank5","Rank6","Rank7","Accession"))
+myCustomPalette <- c("pink","purple","orange","red","yellow","dodgerblue","blue","lightblue","grey90")
+pdf("/Users/vincebilly/Desktop/vince/phd/statistic/afribiota_vince/Simple_risk_factor/figure/proportion_ASV_deseq_allrank.pdf", height = 3, width = 10)
+ggplot(final_table, aes(x = Sample, y = Freq, fill = Var1)) + 
+  theme_bw() +
+  theme(strip.background = element_rect(fill="white")) + #these "theme" settings determine how the facet grid looks on the plot
+  theme(strip.text = element_text(colour = 'black')) +
+  geom_bar(stat = "identity", width = 1.0)  +
+  scale_fill_manual(values = myCustomPalette) +
+  coord_flip() +
+  theme(legend.position="top",
+        axis.text.y = element_text(size=20, face = "bold"),
+        axis.text.x = element_text(size=20, face = "bold"),
+        axis.title.y = element_blank(),
+        axis.title.x = element_blank())
+dev.off()
+
+####################################################################
+
+####################################################################
+###   Total Proportion of Taxa and reads that differ in DESeq   ###
+####################################################################
+
+full_abundance <- fread("/Users/vincebilly/Desktop/vince/phd/statistic/afribiota_vince/Simple_risk_factor/figure/Full_abundance_Table_Both_Country_Both_clinical.txt")
+head(full_abundance)
+full_abundance <- full_abundance[,c("Cplt_taxo")]
+full_abundance <- unique(full_abundance)
+full_abundance$Cplt_taxo <- gsub("[|]NA","",full_abundance$Cplt_taxo)
+
+full_abundance1 <- full_abundance[grep("Rank",full_abundance$Cplt_taxo),]
+full_abundance1$Cplt_taxo <- gsub("ASV.*[|]","",full_abundance1$Cplt_taxo)
+full_abundance2 <- full_abundance[grep("Accession",full_abundance$Cplt_taxo),]
+full_abundance <- rbind(full_abundance1,full_abundance2)
+
+
+log_melt3_mel1 <- log_melt3_mel[grep("Rank",log_melt3_mel$Cplt_taxo),]
+log_melt3_mel1$Cplt_taxo <- gsub("ASV.*[|]","",log_melt3_mel1$Cplt_taxo)
+log_melt3_mel2 <- log_melt3_mel[grep("Accession",log_melt3_mel$Cplt_taxo),]
+log_melt3_mel <- rbind(log_melt3_mel1,log_melt3_mel2)
+
+intersect(full_abundance$Cplt_taxo, log_melt3_mel$Cplt_taxo)
+setdiff(full_abundance$Cplt_taxo, log_melt3_mel$Cplt_taxo)
+setdiff(log_melt3_mel$Cplt_taxo,full_abundance$Cplt_taxo)
+
+
+data <- merge(full_abundance,log_melt3_mel, by="Cplt_taxo", all=TRUE)
+
+
+final_table <- data.frame()
+rank_vector <- c("Rank2","Rank3","Rank4","Rank5","Rank6","Rank7","Accession")
+for(rnk in 1:length(rank_vector)){
+  test1_rnk <- data[grep(rank_vector[rnk],data$Cplt_taxo),]
+  test <- as.data.frame(table(test1_rnk$order))
+  test$Sample <- rank_vector[rnk]
+  final_table <- rbind(final_table,test)
+}
+
+final_table$Var1 <- factor(final_table$Var1, levels = c("Decrease_Increase",
+                                                        "Increase_Decrease",
+                                                        "Decrease_NA",
+                                                        "Decrease_Decrease",
+                                                        "NA_Decrease",
+                                                        "Increase_NA",
+                                                        "Increase_Increase",
+                                                        "NA_Increase",
+                                                        "NA_NA")  
+)
+
+final_table$Sample <- factor(final_table$Sample, levels = c("Rank2","Rank3","Rank4","Rank5","Rank6","Rank7","Accession"))
+myCustomPalette <- c("pink","purple","orange","red","yellow","dodgerblue","blue","lightblue","grey90")
+pdf("/Users/vincebilly/Desktop/vince/phd/statistic/afribiota_vince/Simple_risk_factor/figure/proportion_ASV_deseq_allrank.pdf", height = 3, width = 10)
+ggplot(final_table, aes(x = Sample, y = Freq, fill = Var1)) + 
+  theme_bw() +
+  theme(strip.background = element_rect(fill="white")) + #these "theme" settings determine how the facet grid looks on the plot
+  theme(strip.text = element_text(colour = 'black')) +
+  geom_bar(stat = "identity", width = 1.0)  +
+  scale_fill_manual(values = myCustomPalette) +
+  coord_flip() +
+  theme(legend.position="top",
+        axis.text.y = element_text(size=20, face = "bold"),
+        axis.text.x = element_text(size=20, face = "bold"),
+        axis.title.y = element_blank(),
+        axis.title.x = element_blank())
+dev.off()
+
+####################################################################
+
+####################################################################
+###                  Bubble plot with DESeq results              ###
+####################################################################
+
+#
+full_abundance <- fread("/Users/vincebilly/Desktop/vince/phd/statistic/afribiota_vince/Simple_risk_factor/figure/lefse_input/lefse_Both_Country_Both_clinical.txt")
+#full_abundance <- fread("/Users/vincebilly/Desktop/vince/phd/statistic/afribiota_vince/Simple_risk_factor/figure/Full_abundance_Table_Both_Country_Both_clinical1.txt")
+colnames(full_abundance) <- as.character(full_abundance[1,])
+full_abundance <- full_abundance[-1,]
+
+#Select only the ones that are significant
+to_keep <- intersect(full_abundance$id,log_melt4_mel$Cplt_taxo2)
+full_abundance <- subset(full_abundance, id %in% to_keep)
+full_abundance[full_abundance==1] <- 0 
+  
+#Melt
+full_abundance_melt <- melt(full_abundance, id.vars=c("id"));head(full_abundance_melt)
+
+
+#Merge with metadata
+qPCR_Metadata_sub <- qPCR_Metadata[,c("Sample","stunted","Cq_presence_absence")]
+full_abundance_melt <- merge(qPCR_Metadata_sub, full_abundance_melt, by.x ="Sample", by.y = "variable", all=FALSE)
+
+#Formating for plotting
+full_abundance_melt$value <- as.numeric(full_abundance_melt$value)
+full_abundance_melt$value2 <- ifelse(full_abundance_melt$value==0,NA,full_abundance_melt$value)
+#ggplot
+bubble_plot <- ggplot(full_abundance_melt, aes(x=Sample, y=id, size=value2, color=Cq_presence_absence)) +
+  geom_point() +
+  scale_color_manual(values=c("dodgerblue","gold")) +
+  facet_grid(.~stunted + Cq_presence_absence, scales = "free", space = "free") +
+  theme_minimal() +
+  theme(axis.text.y = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1, size=3),
+        strip.text.x = element_text(size=17))
+
+#
+heatmap_plot <- ggplot(full_abundance_melt, aes(x=Sample, y=id, fill=value2)) +
+  geom_tile() +
+  scale_fill_gradient(low="white", high="black",trans = 'log') +
+  facet_grid(.~stunted + Cq_presence_absence, scales = "free", space = "free") +
+  theme_light() +
+  theme(axis.text.y = element_blank())
+
+full_abundance_melt <- full_abundance_melt %>% mutate(value3=case_when(Cq_presence_absence=="Presence_qPCR" ~ value,
+                                                                        Cq_presence_absence=="Absence_qPCR"~ -value))
+heatmap_plot <- ggplot(full_abundance_melt, aes(x=Sample, y=id, fill=value)) +
+  geom_tile() +
+  scale_fill_gradient(low="white", high="dodgerblue",trans = 'log') +
+  facet_grid(.~stunted + Cq_presence_absence, scales = "free", space = "free") +
+  theme_light() +
+  theme(axis.text.y = element_blank())
+
+#Combine plot
+pdf("/Users/vincebilly/Desktop/vince/phd/statistic/afribiota_vince/Simple_risk_factor/figure/DESeq_and_bubble.pdf", height = 15, width = 30)
+plot_deseq_sig_all %>% insert_right(bubble_plot, width = 10)
+dev.off()
+
+pdf("/Users/vincebilly/Desktop/vince/phd/statistic/afribiota_vince/Simple_risk_factor/figure/DESeq_and_heatmap.pdf", height = 20, width = 30)
+plot_deseq_sig_all %>% insert_right(heatmap_plot, width = 5)
+dev.off()
+
+
+####################################################################
 
 getwd();dir()
 lefse_Madagascar_Stunted <- read.csv("/Users/vincebilly/Desktop/lefse.csv", sep = "\t")
